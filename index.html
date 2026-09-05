@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#12151c" />
+<title>Rootless Voicing Trainer</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin:0; padding:0; background:#12151c; overflow-x:hidden; }
+  body {
+    font-family: Georgia, 'Iowan Old Style', serif;
+    min-height: 100vh;
+    display:flex; justify-content:center;
+    background: linear-gradient(180deg,#12151c 0%,#1b1f29 100%);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    -webkit-user-select: none; user-select: none;
+  }
+  .wrap { width:100%; max-width:640px; padding:18px 20px 28px; }
+  .eyebrow { font-family:'Courier New',monospace; font-size:13px; letter-spacing:.2em;
+    text-transform:uppercase; color:#8a8f9c; display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;}
+  .eyebrow .left { display:flex; align-items:center; gap:8px; }
+  .dot { width:9px; height:9px; border-radius:50%; background:#C9A227; }
+  h1 { color:#F5F0E6; font-size:1.5rem; font-weight:600; margin:0 0 14px; }
+  .panel { background:#181c25; border:1px solid #2a2f3a; border-radius:10px; padding:14px; margin-bottom:12px; }
+  .label { font-family:'Courier New',monospace; font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+    color:#8a8f9c; margin-bottom:8px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { padding:9px 14px; border-radius:8px; font-size:15px; font-family:'Courier New',monospace;
+    border:1px solid #3a3f4a; background:transparent; color:#8a8f9c; cursor:pointer; min-height:40px; }
+  .chip.on { background:#C9A227; color:#1a1a1a; border-color:#C9A227; font-weight:600; }
+  button.big { font-family:Georgia,serif; font-size:20px; font-weight:600; padding:18px 24px; border-radius:12px;
+    border:none; cursor:pointer; background:#C9A227; color:#1a1a1a; width:100%; min-height:64px; }
+  button.ghost { font-family:Georgia,serif; font-size:15px; padding:10px 16px; border-radius:8px;
+    border:1px solid #3a3f4a; background:transparent; color:#8a8f9c; cursor:pointer; min-height:40px; }
+  button:active { transform:scale(0.97); }
+  .display { background:#0e1015; border:1px solid #2a2f3a; border-radius:12px; padding:36px 20px;
+    display:flex; flex-direction:column; align-items:center; margin-bottom:14px; text-align:center; }
+  .typeLabel { font-family:'Courier New',monospace; font-size:13px; letter-spacing:.12em; text-transform:uppercase;
+    color:#6a6f7a; margin-bottom:14px; }
+  .chordRow { display:flex; align-items:baseline; gap:8px; color:#F5F0E6; }
+  .chordRoot { font-size:4rem; font-weight:700; line-height:1; }
+  .chordQual { font-size:2.2rem; font-weight:600; color:#C9A227; }
+  .fullName { color:#8a8f9c; font-size:15px; margin-top:10px; }
+  .note { color:#6a6f7a; font-size:13px; margin-top:8px; max-width:420px; font-style:italic; }
+  .summaryRow { display:flex; justify-content:space-between; font-family:'Courier New',monospace;
+    font-size:15px; color:#c9ccd4; padding:6px 0; border-bottom:1px solid #2a2f3a; }
+  .summaryRow:last-child { border-bottom:none; }
+  .summaryLabel { color:#8a8f9c; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">
+    <span class="left"><span class="dot"></span><span id="counter">問題 1 / 20</span></span>
+    <button class="ghost" id="historyBtn">履歴</button>
+  </div>
+  <h1>Rootless Voicing Trainer</h1>
+
+  <div class="panel" id="setupPanel">
+    <div class="label">Chord Qualities</div>
+    <div class="chips" id="qualityChips"></div>
+  </div>
+
+  <button class="big" id="startBtn" style="margin-bottom:10px;">スタート</button>
+
+  <div id="drillArea" style="display:none;">
+    <div class="display">
+      <div class="typeLabel" id="typeLabel"></div>
+      <div class="chordRow">
+        <span class="chordRoot" id="chordRoot"></span>
+        <span class="chordQual" id="chordQual"></span>
+      </div>
+      <div class="fullName" id="fullName"></div>
+      <div class="note" id="note"></div>
+    </div>
+    <button class="big" id="clearBtn">クリア</button>
+  </div>
+
+  <div class="panel" id="summaryPanel" style="display:none;">
+    <div class="label">20問 完了</div>
+    <div class="summaryRow"><span class="summaryLabel">平均応答時間</span><span id="summaryAvg"></span></div>
+    <div class="summaryRow"><span class="summaryLabel">最長応答時間</span><span id="summaryMax"></span></div>
+    <div class="summaryRow"><span class="summaryLabel">最長だったコード</span><span id="summaryWorst"></span></div>
+    <button class="big" id="continueBtn" style="margin-top:14px;">次のセットへ</button>
+  </div>
+</div>
+
+<div id="historyModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:50; align-items:center; justify-content:center; padding:20px;">
+  <div style="background:#181c25; border:1px solid #2a2f3a; border-radius:10px; padding:22px; max-width:440px; width:100%; max-height:75vh; overflow-y:auto;">
+    <div class="label">練習履歴</div>
+    <div id="historyList" style="font-family:'Courier New',monospace; font-size:14px; color:#c9ccd4; line-height:2;"></div>
+    <button class="ghost" id="closeHistoryBtn" style="margin-top:16px; width:100%;">閉じる</button>
+  </div>
+</div>
+
+<script>
+const LETTERS = ["C","D","E","F","G","A","B"];
+const LETTER_SEMITONE = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+const ACC = {"-2":"𝄫","-1":"♭","0":"","1":"♯","2":"𝄪"};
+const ROOTS = [["C",0],["D",-1],["D",0],["E",-1],["E",0],["F",0],["F",1],["G",0],["A",-1],["A",0],["B",-1],["B",0]];
+
+function rootName(r){ return r[0]+ACC[r[1]]; }
+
+const QUALITIES = {
+  maj7:{label:"Δ7", full:"Major 7th", labelA:"3-5-7-9", labelB:"7-9-3-5"},
+  min7:{label:"-7", full:"Minor 7th", labelA:"♭3-5-♭7-9", labelB:"♭7-9-♭3-5"},
+  dom7:{label:"7", full:"Dominant 7th", labelA:"3-13-♭7-9", labelB:"♭7-9-3-13",
+    note:"5th replaced by 13th (natural 13) — 5th omitted."},
+  m7b5:{label:"ø7", full:"Half-Diminished (m7♭5)", labelA:"♭3-♭5-♭7-9", labelB:"♭7-9-♭3-♭5",
+    note:"9th shown; many players substitute 11 (F) above the ♭5."},
+  dim7:{label:"°7", full:"Fully Diminished 7th", labelA:"root position", labelB:"root position",
+    note:"Symmetrical chord — shown in root position."},
+  alt7:{label:"7alt", full:"Altered Dominant", labelA:"3-♭13-♭7-♭9", labelB:"♭7-♭9-3-♭13",
+    note:"Tensions: ♭9, 3, ♭13, ♭7 (altered scale)."},
+  maj6:{label:"6", full:"Major 6th", labelA:"3-5-6-9", labelB:"6-9-3-5"},
+  min6:{label:"-6", full:"Minor 6th (m6)", labelA:"♭3-5-6-9", labelB:"6-9-♭3-5"},
+  sus4:{label:"7sus4", full:"Dominant 7sus4", labelA:"4-13-♭7-9", labelB:"♭7-9-4-13",
+    note:"5th replaced by 13th (13sus4 convention) — 5th omitted."}
+};
+const QUALITY_ORDER = ["maj7","min7","dom7","m7b5","dim7","alt7","maj6","min6","sus4"];
+
+// state
+let enabledQualities = new Set(["maj7","min7","dom7"]);
+let current = null;
+let questionStart = 0;
+
+const BLOCK_SIZE = 20;
+const HISTORY_KEY = "jazzVoicingHistory";
+let sessionAnswered = 0;
+let sessionTimes = []; // {root, quality, type, elapsedMs}
+
+let memoryHistoryFallback = [];
+function loadHistory(){
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }
+  catch(e){ return memoryHistoryFallback; }
+}
+function saveHistoryRecord(rec){
+  try {
+    const h = loadHistory();
+    h.unshift(rec);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0,200)));
+  } catch(e){
+    memoryHistoryFallback.unshift(rec);
+  }
+}
+function formatSec(ms){
+  return (ms/1000).toFixed(1)+"秒";
+}
+function formatDate(iso){
+  const d = new Date(iso);
+  return d.getFullYear()+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0")+
+    " "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+}
+function chordLabelOf(item){
+  const q = QUALITIES[item.quality];
+  return rootName(item.root)+q.label+"（"+(item.type==="typeA"?q.labelA:q.labelB)+"）";
+}
+
+function makeChord(){
+  const qList = enabledQualities.size ? [...enabledQualities] : QUALITY_ORDER;
+  const quality = qList[Math.floor(Math.random()*qList.length)];
+  const root = ROOTS[Math.floor(Math.random()*ROOTS.length)];
+  const type = Math.random()<0.5 ? "typeA" : "typeB";
+  return {root, quality, type};
+}
+
+function renderChips(){
+  const qc = document.getElementById("qualityChips");
+  qc.innerHTML = "";
+  QUALITY_ORDER.forEach(q=>{
+    const b = document.createElement("button");
+    b.className = "chip"+(enabledQualities.has(q)?" on":"");
+    b.textContent = QUALITIES[q].label;
+    b.onclick = ()=>{
+      if(enabledQualities.has(q)){ if(enabledQualities.size>1) enabledQualities.delete(q); }
+      else enabledQualities.add(q);
+      renderChips();
+    };
+    qc.appendChild(b);
+  });
+}
+
+function render(){
+  document.getElementById("counter").textContent = "問題 "+Math.min(sessionAnswered+1,BLOCK_SIZE)+" / "+BLOCK_SIZE;
+  const q = QUALITIES[current.quality];
+  document.getElementById("typeLabel").textContent = current.quality==="dim7" ? "Root position" :
+    "Rootless — Type "+(current.type==="typeA"?"A":"B")+" ("+(current.type==="typeA"?q.labelA:q.labelB)+")";
+  document.getElementById("chordRoot").textContent = rootName(current.root);
+  document.getElementById("chordQual").textContent = q.label;
+  document.getElementById("fullName").textContent = q.full;
+  document.getElementById("note").textContent = q.note || "";
+}
+
+function loadChord(){
+  current = makeChord();
+  questionStart = Date.now();
+  render();
+}
+
+function finishBlock(){
+  const total = sessionTimes.reduce((a,b)=>a+b.elapsedMs,0);
+  const avg = total / sessionTimes.length;
+  const worst = sessionTimes.reduce((a,b)=> b.elapsedMs>a.elapsedMs ? b : a, sessionTimes[0]);
+  saveHistoryRecord({
+    date: new Date().toISOString(),
+    count: sessionTimes.length,
+    avgMs: avg,
+    maxMs: worst.elapsedMs,
+    worstChord: chordLabelOf(worst)
+  });
+  document.getElementById("summaryAvg").textContent = formatSec(avg);
+  document.getElementById("summaryMax").textContent = formatSec(worst.elapsedMs);
+  document.getElementById("summaryWorst").textContent = chordLabelOf(worst);
+  document.getElementById("drillArea").style.display = "none";
+  document.getElementById("summaryPanel").style.display = "block";
+}
+
+function advance(){
+  sessionAnswered++;
+  if(sessionAnswered >= BLOCK_SIZE) finishBlock();
+  else loadChord();
+}
+
+function startSession(){
+  document.getElementById("setupPanel").style.display = "none";
+  document.getElementById("startBtn").style.display = "none";
+  document.getElementById("drillArea").style.display = "block";
+  document.getElementById("summaryPanel").style.display = "none";
+  sessionAnswered = 0;
+  sessionTimes = [];
+  loadChord();
+}
+
+document.getElementById("startBtn").onclick = startSession;
+document.getElementById("continueBtn").onclick = startSession;
+
+document.getElementById("clearBtn").onclick = ()=>{
+  const elapsedMs = Date.now()-questionStart;
+  sessionTimes.push({root:current.root, quality:current.quality, type:current.type, elapsedMs});
+  advance();
+};
+
+document.getElementById("historyBtn").onclick = ()=>{
+  const list = document.getElementById("historyList");
+  const h = loadHistory();
+  list.innerHTML = h.length===0 ? "記録がありません。" :
+    h.map(r=> formatDate(r.date)+"　平均"+formatSec(r.avgMs)+"　最長"+formatSec(r.maxMs)+"（"+r.worstChord+"）").join("<br>");
+  document.getElementById("historyModal").style.display = "flex";
+};
+document.getElementById("closeHistoryBtn").onclick = ()=>{
+  document.getElementById("historyModal").style.display = "none";
+};
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  });
+}
+
+renderChips();
+</script>
+</body>
+</html>
