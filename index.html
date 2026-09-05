@@ -78,6 +78,7 @@
       <div class="note" id="note"></div>
     </div>
     <button class="big" id="clearBtn">クリア</button>
+    <button class="ghost" id="backBtn1" style="width:100%; margin-top:10px;">メニューへ戻る</button>
   </div>
 
   <div class="panel" id="summaryPanel" style="display:none;">
@@ -86,6 +87,7 @@
     <div class="summaryRow"><span class="summaryLabel">最長応答時間</span><span id="summaryMax"></span></div>
     <div class="summaryRow"><span class="summaryLabel">最長だったコード</span><span id="summaryWorst"></span></div>
     <button class="big" id="continueBtn" style="margin-top:14px;">次のセットへ</button>
+    <button class="ghost" id="backBtn2" style="width:100%; margin-top:10px;">メニューへ戻る</button>
   </div>
 </div>
 
@@ -235,8 +237,17 @@ function startSession(){
   loadChord();
 }
 
+function backToMenu(){
+  document.getElementById("drillArea").style.display = "none";
+  document.getElementById("summaryPanel").style.display = "none";
+  document.getElementById("setupPanel").style.display = "block";
+  document.getElementById("startBtn").style.display = "block";
+}
+
 document.getElementById("startBtn").onclick = startSession;
 document.getElementById("continueBtn").onclick = startSession;
+document.getElementById("backBtn1").onclick = backToMenu;
+document.getElementById("backBtn2").onclick = backToMenu;
 
 document.getElementById("clearBtn").onclick = ()=>{
   const elapsedMs = Date.now()-questionStart;
